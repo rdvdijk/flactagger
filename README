@@ -1,0 +1,15 @@
+flactagger is a Ruby script for tagging FLAC files. It can extract
+information from file names if they're named according to etree.org's
+naming standards. It can also extract information from info files like
+song titles, location and date. Tags can also be editied in an editor.
+
+flactagger is licensed under the GNU GPL. See the file COPYING for the
+license itself.
+
+Read the INSTALL file for details on how to install flactagger.
+
+Requirements:
+ * Ruby
+ * flac (actually only the 'metaflac' tool is needed)
+
+WWW: http://flactagger.berlios.de/

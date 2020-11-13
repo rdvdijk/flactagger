@@ -1,0 +1,27 @@
+3.1.1
+
+- fixed a few bugs related to the -e option (thanks to Roel!)
+
+3.1.0
+
+- added automatic detection of the two -m modes
+- added support for multi line titles
+- fixed a bug in track number parsing
+
+3.0.1
+
+- Fixed several spelling errors and fixed the description for the -T
+  option.
+
+3.0.0
+
+- Completely rewritten in Ruby and simplified from the
+  complexities of version 2.0.x. No longer requires a C compiler.
+- Depends on 'metaflac' (like versions prior to 0.8.x).
+- REPLAYGAIN tags are now preserved.
+- Added support for multiple equal tag fields.
+- Added support for multiple types of track numbers (see -T option).
+- Added support for editing tags in and editor (see -e option).
+- Added support for multiple info file parsing modes (see -m option).
+- The -d and -r tags now takes an optional regexp argument.
+- Re-licenced under the GNU GPLv3.
