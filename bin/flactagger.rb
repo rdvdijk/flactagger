@@ -22,9 +22,9 @@ require 'optparse'
 FTVERSION = "3.1.1"
 
 Tag = Struct.new(:field, :value)
-Options = Struct.new(:album, :date, :date_regexp, :edit, :dryrun, :help, 
-                     :ifields, :infofile, :mode, :parser, :rtitles, :tags, 
-                     :title_regexp, :ttype, :version)
+Options = Struct.new(:album, :combined_album, :date, :date_regexp, :edit, 
+                     :dryrun, :help, :ifields, :infofile, :mode, :parser, 
+                     :rtitles, :tags, :title_regexp, :ttype, :version)
 
 
 class InfofileParser
@@ -101,6 +101,12 @@ class FlacTagger
     o.on("-A",
          "Use the ALBUM field rather than the default LOCATION field") do
       opts.album = true
+    end
+
+    o.on("-B",
+         "Create ALBUM field combining the last LOCATION tag and the",
+         "DATE field, e.g. 'City, Country. YYYY-MM-DD'") do
+       opts.combined_album = true
     end
 
     o.on("-d", "=[REGEXP]",
@@ -283,7 +289,7 @@ class FlacTagger
   end
 
   def parse_info_file(infofile, rtitles, title_regexp, mode, 
-                      ifields, use_album)
+                      ifields, use_album, combined_album)
     titles = []
     tags = []
     
@@ -310,6 +316,9 @@ class FlacTagger
           else
             locations.each { |l| tags << Tag.new("ALBUM", l) }
           end
+          if combined_album
+            tags << Tag.new("ALBUM", "#{locations.last}. #{date}")
+          end
         when :b
           headers = ifp.headers
           artist = headers.shift
@@ -322,15 +331,18 @@ class FlacTagger
           else
             locations.each { |l| tags << Tag.new("ALBUM", l) }
           end
+          if combined_album
+            tags << Tag.new("ALBUM", "#{locations.last}. #{date}")
+          end
         when :auto
           headers = ifp.headers
 
           if headers[1].match(/\d{4}-\d\d-\d\d/)
             return parse_info_file(infofile, rtitles, title_regexp, 
-                                   :b, ifields, use_album)
+                                   :b, ifields, use_album, combined_album)
           elsif headers.last.match(/\d{4}-\d\d-\d\d/)
             return parse_info_file(infofile, rtitles, title_regexp, 
-                                   :a, ifields, use_album)
+                                   :a, ifields, use_album, combined_album)
           else
             raise "Unable to automatically detect mode"
           end
@@ -536,7 +548,8 @@ class FlacTagger
                                     @options.title_regexp,
                                     @options.mode,
                                     @options.ifields,
-                                    @options.album) if @options.infofile
+                                    @options.album,
+                                    @options.combined_album) if @options.infofile
 
     dates = array_to_tags(extract_dates(@files), 
                           "DATE") if @options.date
