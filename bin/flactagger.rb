@@ -24,7 +24,8 @@ FTVERSION = "3.1.1"
 Tag = Struct.new(:field, :value)
 Options = Struct.new(:album, :combined_album, :date, :date_regexp, :edit, 
                      :dryrun, :help, :ifields, :infofile, :mode, :parser, 
-                     :rtitles, :tags, :title_regexp, :ttype, :version)
+                     :rtitles, :tags, :title_regexp, :ttype, :version,
+                     :print)
 
 
 class InfofileParser
@@ -158,6 +159,10 @@ class FlacTagger
       opts.dryrun = true 
     end
 
+    o.on("-p", "Print file names while tagging.") do
+      opts.print = true
+    end
+
     o.on("-r", "=[REGEXP]",
          "Read titles from info file. The optional argument is a Ruby",
          "regexp. If this is set it will be used when scanning for ",
@@ -243,8 +248,11 @@ class FlacTagger
     return args
   end
 
-  def tag(dryrun=false)
+  def tag(dryrun=false, print=false)
     @tags.sort.each do |filename, tags|
+      if print
+        puts "%s" % filename
+      end
       unless dryrun
         unless system("metaflac", 
                       *create_metaflac_args(sort_tags(tags)).push(filename))
@@ -581,7 +589,7 @@ class FlacTagger
       end if ftags
     end
     
-    tag(@options.dryrun)
+    tag(@options.dryrun, @options.print)
   end
 
   def associate_files_with_tags(files, dates, tracknumbers, titles, rgain)
