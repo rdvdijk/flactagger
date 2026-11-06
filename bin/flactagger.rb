@@ -16,59 +16,54 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-
 require 'optparse'
 
-FTVERSION = "3.1.1"
+FTVERSION = '3.1.1'
 
 Tag = Struct.new(:field, :value)
-Options = Struct.new(:album, :combined_album, :date, :date_regexp, :edit, 
-                     :dryrun, :help, :ifields, :infofile, :mode, :parser, 
+Options = Struct.new(:album, :combined_album, :date, :date_regexp, :edit,
+                     :dryrun, :help, :ifields, :infofile, :mode, :parser,
                      :rtitles, :tags, :title_regexp, :ttype, :version,
                      :print)
 
-
 class InfofileParser
-
   def initialize(filename)
     @data = IO.read(filename)
     @data = @data.gsub("\r\n", "\n").gsub("\r", "\n")
   end
 
   def headers
-    return @data.split("\n\n")[0].split("\n")
+    @data.split("\n\n")[0].split("\n")
   end
 
-  def titles(re_title=/\d\d\. (.*)$/)
+  def titles(re_title = /\d\d\. (.*)$/)
     lines = @data.split("\n")
     titles = []
     match = false
-    pline = ""
+    pline = ''
 
     until lines.empty?
       line = lines.shift
       if line.match(re_title)
-        titles << $1
+        titles << ::Regexp.last_match(1)
         match = true
         pline = line
       elsif match
         # check for multi-line title
-        # should be indented similar to match the start of the 
+        # should be indented similar to match the start of the
         # previous line's title
-        #01. Title
+        # 01. Title
         #   ^- space
-        space = pline.index(" ")
-        spaces = " " * space
-        if line.index(spaces) == 0
-          titles.last.concat(line.sub(spaces, ""))
-        end
+        space = pline.index(' ')
+        spaces = ' ' * space
+        titles.last.concat(line.sub(spaces, '')) if line.index(spaces) == 0
       else
-        pline = ""
+        pline = ''
         match = false
       end
     end
 
-    return titles
+    titles
   end
 
   def map_headers_to_fields(fields)
@@ -78,121 +73,119 @@ class InfofileParser
       tags.push(Tag.new(field, headers.shift))
     end
 
-    return tags
+    tags
   end
-
 end
 
-
 class FlacTagger
-  
   def initialize(files, options)
-    @files, @options = files, options
+    @files = files
+    @options = options
     @tags = {}
   end
 
-  def FlacTagger.parse_options
-    opts = Options.new(*[nil]*14)
+  def self.parse_options
+    opts = Options.new(*[nil] * 14)
 
     o = OptionParser.new
-    o.summary_indent = " "
+    o.summary_indent = ' '
     o.summary_width = 14
-    o.separator("")
+    o.separator('')
 
-    o.on("-A",
-         "Use the ALBUM field rather than the default LOCATION field") do
+    o.on('-A',
+         'Use the ALBUM field rather than the default LOCATION field') do
       opts.album = true
     end
 
-    o.on("-B",
-         "Create ALBUM field combining the last LOCATION tag and the",
+    o.on('-B',
+         'Create ALBUM field combining the last LOCATION tag and the',
          "DATE field, e.g. 'City, Country. YYYY-MM-DD'") do
-       opts.combined_album = true
+      opts.combined_album = true
     end
 
-    o.on("-d", "=[REGEXP]",
-         "Extract date from filenames. The optional argument is a",
-         "Ruby regexp. If this is set it will be used to extract",
-         "the date from filename.",
-         "The default regexp is:  /(\\d{4}-\\d\\d-\\d\\d)/",
-         "which corresponds to the ISO date format: YYYY-MM-DD") do |regexp|
-      opts.date_regexp = (regexp==true) ? nil : eval(regexp)
+    o.on('-d', '=[REGEXP]',
+         'Extract date from filenames. The optional argument is a',
+         'Ruby regexp. If this is set it will be used to extract',
+         'the date from filename.',
+         'The default regexp is:  /(\\d{4}-\\d\\d-\\d\\d)/',
+         'which corresponds to the ISO date format: YYYY-MM-DD') do |regexp|
+      opts.date_regexp = regexp == true ? nil : eval(regexp)
       opts.date = true
     end
 
-    o.on("-e",
-         "Edit tags in an editor of your choice before tagging. Either the ",
-         "VISUAL or EDITOR environment variable must be set") do
-      opts.edit = true 
+    o.on('-e',
+         'Edit tags in an editor of your choice before tagging. Either the ',
+         'VISUAL or EDITOR environment variable must be set') do
+      opts.edit = true
     end
 
-    o.on("-f", "=FIELDLIST", Array,
-         "Fields corresponding to lines from the top of the info file",
-         "(comma separated). Note: cannot be used with the -m flag") do |fields|
+    o.on('-f', '=FIELDLIST', Array,
+         'Fields corresponding to lines from the top of the info file',
+         '(comma separated). Note: cannot be used with the -m flag') do |fields|
       opts.ifields = fields
     end
 
-    o.on("-i", "=INFOFILE",
+    o.on('-i', '=INFOFILE',
          String,
-         "Path to filename to be used as info file.") do |filename|
+         'Path to filename to be used as info file.') do |filename|
       opts.infofile = filename
     end
 
-    o.on("-m", "=MODE", [:a, :b, :auto],
-         "Parsing mode. Special modes for how to parse the header of info",
-         "files. The header is assumed to be every line from the top of",
-         "the info file until the first blank line. Available modes:",
-         " a",
-         "     ARTIST",
-         "     LOCATION (multiple lines)",
-         "     DATE (last line)",
-         " b",
-         "     ARTIST",
-         "     DATE",
-         "     LOCATION (all remaining lines)",
-         " auto",
+    o.on('-m', '=MODE', %i[a b auto],
+         'Parsing mode. Special modes for how to parse the header of info',
+         'files. The header is assumed to be every line from the top of',
+         'the info file until the first blank line. Available modes:',
+         ' a',
+         '     ARTIST',
+         '     LOCATION (multiple lines)',
+         '     DATE (last line)',
+         ' b',
+         '     ARTIST',
+         '     DATE',
+         '     LOCATION (all remaining lines)',
+         ' auto',
          "  try to detect mode 'a' or 'b' or fail") do |mode|
       opts.mode = mode
     end
 
-    o.on("-n", "Dry run.") do 
-      opts.dryrun = true 
+    o.on('-n', 'Dry run.') do
+      opts.dryrun = true
     end
 
-    o.on("-p", "Print file names while tagging.") do
+    o.on('-p', 'Print file names while tagging.') do
       opts.print = true
     end
 
-    o.on("-r", "=[REGEXP]",
-         "Read titles from info file. The optional argument is a Ruby",
-         "regexp. If this is set it will be used when scanning for ",
-         "titles in the info file. If not the default will be used ",
-         "which is: /^\\d\\d\\. (.*)$/") do |regexp|
+    o.on('-r', '=[REGEXP]',
+         'Read titles from info file. The optional argument is a Ruby',
+         'regexp. If this is set it will be used when scanning for ',
+         'titles in the info file. If not the default will be used ',
+         'which is: /^\\d\\d\\. (.*)$/') do |regexp|
       opts.rtitles = true
-      opts.title_regexp = (regexp==true) ? nil : eval(regexp)
+      opts.title_regexp = regexp == true ? nil : eval(regexp)
     end
 
-    o.on("-t", "=TAG", String,
-         "Add a TAG which is a field/value pair (FIELD=Value). This",
-         "option can be used multiple times.") do |tag|
-      field,value = tag.split("=")
+    o.on('-t', '=TAG', String,
+         'Add a TAG which is a field/value pair (FIELD=Value). This',
+         'option can be used multiple times.') do |tag|
+      field, value = tag.split('=')
       opts.tags = [] if opts.tags.nil?
-      opts.tags << Tag.new(field,value)
+      opts.tags << Tag.new(field, value)
     end
 
-    o.on("-T", "=TYPE", [:a, :b, :c],
-         "Track number type a, b or d",
+    o.on('-T', '=TYPE', %i[a b c],
+         'Track number type a, b or d',
          "  a = use dNtNN from filename or just tNN without 't' if no 'd'",
          "  b = same as a except exclude 'd' and 't' (d1t02 becomes 102)",
-         "  c = generate track number(s) from 01") do |ttype|
+         '  c = generate track number(s) from 01') do |ttype|
       opts.ttype = ttype
     end
 
-    o.on_tail("-v", "Show version") do
+    o.on_tail('-v', 'Show version') do
       opts.version = true
     end
 
-    o.on_tail("-h", "Help") do
+    o.on_tail('-h', 'Help') do
       opts.help = true
     end
 
@@ -218,58 +211,56 @@ class FlacTagger
     end
 
     files = []
-    
+
     ARGV.each do |arg|
-      if File.exists?(arg)
+      if File.exist?(arg)
         files << arg
       else
         $stderr.write("Unknown options: %s\n" % arg)
         exit(1)
       end
     end
-    
-    return opts, files
+
+    [opts, files]
   end
 
-  def FlacTagger.invoke
+  def self.invoke
     options, files = parse_options
     FlacTagger.new(files, options).invoke
   end
 
   def create_metaflac_args(tags)
     args = []
-    args.push("--remove-all-tags")
-    args.push("--no-utf8-convert")
+    args.push('--remove-all-tags')
+    args.push('--no-utf8-convert')
 
     tags.each do |tag|
-      args << '--set-tag=%s=%s' % [tag.field,tag.value]
+      args << format('--set-tag=%s=%s', tag.field, tag.value)
     end
 
-    return args
+    args
   end
 
-  def tag(dryrun=false, print=false)
+  def tag(dryrun = false, print = false)
     @tags.sort.each do |filename, tags|
-      if print
-        puts "%s" % filename
-      end
-      unless dryrun
-        unless system("metaflac", 
+      puts '%s' % filename if print
+      if dryrun
+        puts '%s:' % filename
+        sort_tags(tags).each do |tag|
+          puts format('  %s=%s', tag.field, tag.value)
+        end
+      else
+        unless system('metaflac',
                       *create_metaflac_args(sort_tags(tags)).push(filename))
           $stderr.write("%s FAILED\n" % filename)
           exit(1)
-        end
-      else
-        puts "%s:" % filename
-        sort_tags(tags).each do |tag|
-          puts "  %s=%s" % [ tag.field, tag.value ]
         end
       end
     end
   end
 
   def sort_tags(tags)
-    tags.sort do |x,y|
+    tags.sort do |x, y|
       if x.field == y.field
         0
       elsif x.field < y.field
@@ -285,23 +276,23 @@ class FlacTagger
 
     filenames.each do |filename|
       if @options.date_regexp and filename.match(@options.date_regexp)
-        dates << $1
+        dates << ::Regexp.last_match(1)
       elsif filename.match(/(\d{4}-\d\d-\d\d)/)
-        dates << $1
+        dates << ::Regexp.last_match(1)
       else
-        raise "Unable to extract date from: %s" % filename
+        raise 'Unable to extract date from: %s' % filename
       end
     end
 
-    return dates
+    dates
   end
 
-  def parse_info_file(infofile, rtitles, title_regexp, mode, 
+  def parse_info_file(infofile, rtitles, title_regexp, mode,
                       ifields, use_album, combined_album)
     titles = []
     tags = []
-    
-    if File.exists?(infofile)
+
+    if File.exist?(infofile)
       ifp = InfofileParser.new(infofile)
       if rtitles
         titles = if title_regexp
@@ -317,55 +308,51 @@ class FlacTagger
           artist = headers.shift
           date = headers.pop
           locations = headers
-          tags << Tag.new("ARTIST", artist)
-          tags << Tag.new("DATE", date)
-          unless use_album
-            locations.each { |l| tags << Tag.new("LOCATION", l) }
+          tags << Tag.new('ARTIST', artist)
+          tags << Tag.new('DATE', date)
+          if use_album
+            locations.each { |l| tags << Tag.new('ALBUM', l) }
           else
-            locations.each { |l| tags << Tag.new("ALBUM", l) }
+            locations.each { |l| tags << Tag.new('LOCATION', l) }
           end
-          if combined_album
-            tags << Tag.new("ALBUM", "#{locations.last}. #{date}")
-          end
+          tags << Tag.new('ALBUM', "#{locations.last}. #{date}") if combined_album
         when :b
           headers = ifp.headers
           artist = headers.shift
           date = headers.shift
           locations = headers
-          tags << Tag.new("ARTIST", artist)
-          tags << Tag.new("DATE", date)
-          unless use_album
-            locations.each { |l| tags << Tag.new("LOCATION", l) }
+          tags << Tag.new('ARTIST', artist)
+          tags << Tag.new('DATE', date)
+          if use_album
+            locations.each { |l| tags << Tag.new('ALBUM', l) }
           else
-            locations.each { |l| tags << Tag.new("ALBUM", l) }
+            locations.each { |l| tags << Tag.new('LOCATION', l) }
           end
-          if combined_album
-            tags << Tag.new("ALBUM", "#{locations.last}. #{date}")
-          end
+          tags << Tag.new('ALBUM', "#{locations.last}. #{date}") if combined_album
         when :auto
           headers = ifp.headers
 
           if headers[1].match(/\d{4}-\d\d-\d\d/)
-            return parse_info_file(infofile, rtitles, title_regexp, 
+            return parse_info_file(infofile, rtitles, title_regexp,
                                    :b, ifields, use_album, combined_album)
           elsif headers.last.match(/\d{4}-\d\d-\d\d/)
-            return parse_info_file(infofile, rtitles, title_regexp, 
+            return parse_info_file(infofile, rtitles, title_regexp,
                                    :a, ifields, use_album, combined_album)
           else
-            raise "Unable to automatically detect mode"
+            raise 'Unable to automatically detect mode'
           end
         else
-          raise "No such mode: %s" % options.mode
+          raise 'No such mode: %s' % options.mode
         end
       elsif ifields
         tags.concat(ifp.map_headers_to_fields(ifields))
       end
     else
-      raise "%s does not exist" % infofile
+      raise '%s does not exist' % infofile
       exit(1)
     end
 
-    return tags, titles
+    [tags, titles]
   end
 
   def extract_tracknumbers(filenames, ttype)
@@ -375,40 +362,36 @@ class FlacTagger
     when :a
       filenames.each do |filename|
         if filename.match(/-.*(d\d+t\d+)/)
-          tracknumbers << $1
+          tracknumbers << ::Regexp.last_match(1)
         elsif filename.match(/-.*t(\d+)\./)
-          tracknumbers << $1
+          tracknumbers << ::Regexp.last_match(1)
         else
-          raise "Could not extract track number for %s" % filename
+          raise 'Could not extract track number for %s' % filename
         end
       end
     when :b
       filenames.each do |filename|
-        if filename.match(/d(\d+)t(\d+)/)
-          tracknumbers << "%s%s" % [$1, $2]
-        else
-          raise "Could not extract track number for %s (ttype=%s)" % 
-            [
-             filename,
-             ttype
-            ]
+        unless filename.match(/d(\d+)t(\d+)/)
+          raise format('Could not extract track number for %s (ttype=%s)', filename, ttype)
         end
+
+        tracknumbers << format('%s%s', ::Regexp.last_match(1), ::Regexp.last_match(2))
       end
     when :c
-      "1".upto(filenames.length.to_s) do |i| 
-        if filenames.length < 10
-          tracknumbers << "0%s" % i
-        else
-          tracknumbers << i.rjust(filenames.length.to_s.length, "0")
-        end
+      '1'.upto(filenames.length.to_s) do |i|
+        tracknumbers << if filenames.length < 10
+                          '0%s' % i
+                        else
+                          i.rjust(filenames.length.to_s.length, '0')
+                        end
       end
     end
 
-    return tracknumbers
+    tracknumbers
   end
 
   def write_tags_file(gtags, ftags)
-    File.open(".tags", "w") do |f|
+    File.open('.tags', 'w') do |f|
       f.write("# Format: \n" \
               "# GLOBAL FIELD=Value\n"\
               "# GLOBAL FIELD2=Value2\n"\
@@ -428,7 +411,7 @@ class FlacTagger
 
       if gtags
         gtags.each do |t|
-          f.write("GLOBAL %s=%s\n" % [ t.field, t.value ])
+          f.write(format("GLOBAL %s=%s\n", t.field, t.value))
         end
         f.write("\n")
       end
@@ -436,7 +419,7 @@ class FlacTagger
         ftags.sort.each do |filename, tags|
           f.write("%s:\n" % filename)
           tags.each do |t|
-            f.write("  %s=%s\n" % [ t.field, t.value ])
+            f.write(format("  %s=%s\n", t.field, t.value))
           end
         end
         f.write("\n")
@@ -448,37 +431,36 @@ class FlacTagger
     cfile = nil
     tags = []
 
-    File.open(".tags", "r") do |f|
+    File.open('.tags', 'r') do |f|
       lines = f.read.split("\n")
       lines.each do |line|
-        next if line.match(/^\#|^[ ]*$/)
+        next if line.match(/^\#|^ *$/)
 
         if line.match(/^GLOBAL (.*)=(.*)$/)
-          add_global_tag($1.strip, $2.strip)
+          add_global_tag(::Regexp.last_match(1).strip, ::Regexp.last_match(2).strip)
         elsif line.match(/^(.*):$/)
-          file = $1.strip
+          file = ::Regexp.last_match(1).strip
           if cfile.nil?
             cfile = file
           else
-            tags.each do |f,v|
+            tags.each do |f, v|
               add_tag(cfile, f, v)
             end
             tags.clear
             cfile = file
           end
         elsif line.match(/^  (.*)=(.*)$/)
-          tags << [$1.strip, $2.strip]
+          tags << [::Regexp.last_match(1).strip, ::Regexp.last_match(2).strip]
         end
       end
-      
+
       if cfile and tags
-        tags.each do |f,v|
+        tags.each do |f, v|
           add_tag(cfile, f, v)
         end
       end
     end
   end
-
 
   def add_global_tag(field, value)
     @files.each do |filename|
@@ -486,21 +468,20 @@ class FlacTagger
     end
   end
 
-
   def add_tag(filename, field, value)
     if @tags.key?(filename)
       @tags[filename] << Tag.new(field, value)
     else
-      @tags[filename] = [ Tag.new(field, value) ]
+      @tags[filename] = [Tag.new(field, value)]
     end
   end
 
   def edit_tags(gtags, ftags)
-    editor = ENV["EDITOR"] || ENV["VISUAL"] || nil
-    
+    editor = ENV['EDITOR'] || ENV['VISUAL'] || nil
+
     if editor
       if write_tags_file(gtags, ftags)
-        if system(editor, ".tags")
+        if system(editor, '.tags')
           begin
             parse_tags_file
           rescue Exception => e
@@ -510,34 +491,33 @@ class FlacTagger
           $stderr.write("Editing failed???\n")
         end
       else
-        raise("Neither of the environment variables VISUAL or"\
-              "EDITOR are set. Needed with -e.")
+        raise('Neither of the environment variables VISUAL or'\
+              'EDITOR are set. Needed with -e.')
       end
     end
 
-    File.unlink(".tags") if File.exists?(".tags")
+    File.unlink('.tags') if File.exist?('.tags')
   end
-
 
   def collect_replay_gain(files)
     rgain = {}
 
     files.each do |filename|
       tagsfile = "#{filename}.tags"
-      ret = system("metaflac",
+      ret = system('metaflac',
                    "--export-tags-to=#{tagsfile}",
                    filename)
 
       raise "Error occured trying to run 'metaflac'" unless ret
-      
+
       IO.readlines(tagsfile).each do |line|
-        tag,value = line.strip.split("=")
+        tag, value = line.strip.split('=')
 
         if tag.match(/REPLAYGAIN/)
           if rgain.key?(filename)
             rgain[filename] << Tag.new(tag, value)
           else
-            rgain[filename] = [ Tag.new(tag, value) ]
+            rgain[filename] = [Tag.new(tag, value)]
           end
         end
       end
@@ -545,27 +525,36 @@ class FlacTagger
       File.unlink(tagsfile)
     end
 
-    return rgain
+    rgain
   end
 
   def invoke
-    dates, gtags, titles, tracknumbers = [], [], [], []
+    dates = []
+    gtags = []
+    titles = []
+    tracknumbers = []
 
-    gtags, titles = parse_info_file(@options.infofile,
-                                    @options.rtitles,
-                                    @options.title_regexp,
-                                    @options.mode,
-                                    @options.ifields,
-                                    @options.album,
-                                    @options.combined_album) if @options.infofile
+    if @options.infofile
+      gtags, titles = parse_info_file(@options.infofile,
+                                      @options.rtitles,
+                                      @options.title_regexp,
+                                      @options.mode,
+                                      @options.ifields,
+                                      @options.album,
+                                      @options.combined_album)
+    end
 
-    dates = array_to_tags(extract_dates(@files), 
-                          "DATE") if @options.date
-    tracknumbers = array_to_tags(extract_tracknumbers(@files,
-                                                      @options.ttype),
-                                 "TRACKNUMBER") if @options.ttype
+    if @options.date
+      dates = array_to_tags(extract_dates(@files),
+                            'DATE')
+    end
+    if @options.ttype
+      tracknumbers = array_to_tags(extract_tracknumbers(@files,
+                                                        @options.ttype),
+                                   'TRACKNUMBER')
+    end
 
-    titles = array_to_tags(titles, "TITLE") if @options.rtitles
+    titles = array_to_tags(titles, 'TITLE') if @options.rtitles
 
     gtags.concat(@options.tags) if @options.tags
 
@@ -580,15 +569,19 @@ class FlacTagger
     if @options.edit
       edit_tags(gtags, ftags)
     else
-      gtags.each do |tag| 
-        add_global_tag(tag.field, tag.value)
-      end if gtags
+      if gtags
+        gtags.each do |tag|
+          add_global_tag(tag.field, tag.value)
+        end
+      end
 
-      ftags.each do |fname, tags| 
-        tags.each { |t| add_tag(fname, t.field, t.value) } 
-      end if ftags
+      if ftags
+        ftags.each do |fname, tags|
+          tags.each { |t| add_tag(fname, t.field, t.value) }
+        end
+      end
     end
-    
+
     tag(@options.dryrun, @options.print)
   end
 
@@ -597,25 +590,21 @@ class FlacTagger
 
     fl = files.length
 
-    if fl != dates.length 
-      unless dates.nil? or dates.empty?
-        raise "Number of files is not equal to the number of extracted dates"
-      end
+    if fl != dates.length
+      raise 'Number of files is not equal to the number of extracted dates' unless dates.nil? or dates.empty?
     elsif fl != tracknumbers.length
       unless tracknumbers.nil? or tracknumbers.empty?
-        raise "Number of files is not equal to the number of track numbers"
+        raise 'Number of files is not equal to the number of track numbers'
       end
     elsif fl != titles.length
-      unless titles.nil? or titles.empty?
-        raise "Number of files is not equal to the number of titles"
-      end
+      raise 'Number of files is not equal to the number of titles' unless titles.nil? or titles.empty?
     end
 
     files.each do |filename|
       all_tags = []
       all_tags << dates.shift unless dates.nil? or dates.empty?
       all_tags << tracknumbers.shift unless tracknumbers.nil? or
-        tracknumbers.empty?
+                                            tracknumbers.empty?
       all_tags << titles.shift unless titles.nil? or titles.empty?
 
       if rgain.key?(filename)
@@ -624,14 +613,12 @@ class FlacTagger
         end
       end
 
-      unless all_tags.empty?
-        all_tags.sort! { |x,y| x.field<=>y.field }
-      end
+      all_tags.sort! { |x, y| x.field <=> y.field } unless all_tags.empty?
 
       tagshash[filename] = all_tags
     end
 
-    return tagshash
+    tagshash
   end
 
   def array_to_tags(a, field)
@@ -640,11 +627,9 @@ class FlacTagger
       tags << Tag.new(field, i)
     end
 
-    return tags
+    tags
   end
-
 end
-
 
 begin
   FlacTagger.invoke
