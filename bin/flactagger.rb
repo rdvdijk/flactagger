@@ -22,9 +22,10 @@ require 'optparse'
 FTVERSION = "3.1.1"
 
 Tag = Struct.new(:field, :value)
-Options = Struct.new(:album, :date, :date_regexp, :edit, :dryrun, :help, 
-                     :ifields, :infofile, :mode, :parser, :rtitles, :tags, 
-                     :title_regexp, :ttype, :version)
+Options = Struct.new(:album, :combined_album, :date, :date_regexp, :edit, 
+                     :dryrun, :help, :ifields, :infofile, :mode, :parser, 
+                     :rtitles, :tags, :title_regexp, :ttype, :version,
+                     :print)
 
 
 class InfofileParser
@@ -103,6 +104,12 @@ class FlacTagger
       opts.album = true
     end
 
+    o.on("-B",
+         "Create ALBUM field combining the last LOCATION tag and the",
+         "DATE field, e.g. 'City, Country. YYYY-MM-DD'") do
+       opts.combined_album = true
+    end
+
     o.on("-d", "=[REGEXP]",
          "Extract date from filenames. The optional argument is a",
          "Ruby regexp. If this is set it will be used to extract",
@@ -150,6 +157,10 @@ class FlacTagger
 
     o.on("-n", "Dry run.") do 
       opts.dryrun = true 
+    end
+
+    o.on("-p", "Print file names while tagging.") do
+      opts.print = true
     end
 
     o.on("-r", "=[REGEXP]",
@@ -237,8 +248,11 @@ class FlacTagger
     return args
   end
 
-  def tag(dryrun=false)
+  def tag(dryrun=false, print=false)
     @tags.sort.each do |filename, tags|
+      if print
+        puts "%s" % filename
+      end
       unless dryrun
         unless system("metaflac", 
                       *create_metaflac_args(sort_tags(tags)).push(filename))
@@ -283,7 +297,7 @@ class FlacTagger
   end
 
   def parse_info_file(infofile, rtitles, title_regexp, mode, 
-                      ifields, use_album)
+                      ifields, use_album, combined_album)
     titles = []
     tags = []
     
@@ -310,6 +324,9 @@ class FlacTagger
           else
             locations.each { |l| tags << Tag.new("ALBUM", l) }
           end
+          if combined_album
+            tags << Tag.new("ALBUM", "#{locations.last}. #{date}")
+          end
         when :b
           headers = ifp.headers
           artist = headers.shift
@@ -322,15 +339,18 @@ class FlacTagger
           else
             locations.each { |l| tags << Tag.new("ALBUM", l) }
           end
+          if combined_album
+            tags << Tag.new("ALBUM", "#{locations.last}. #{date}")
+          end
         when :auto
           headers = ifp.headers
 
           if headers[1].match(/\d{4}-\d\d-\d\d/)
             return parse_info_file(infofile, rtitles, title_regexp, 
-                                   :b, ifields, use_album)
+                                   :b, ifields, use_album, combined_album)
           elsif headers.last.match(/\d{4}-\d\d-\d\d/)
             return parse_info_file(infofile, rtitles, title_regexp, 
-                                   :a, ifields, use_album)
+                                   :a, ifields, use_album, combined_album)
           else
             raise "Unable to automatically detect mode"
           end
@@ -536,7 +556,8 @@ class FlacTagger
                                     @options.title_regexp,
                                     @options.mode,
                                     @options.ifields,
-                                    @options.album) if @options.infofile
+                                    @options.album,
+                                    @options.combined_album) if @options.infofile
 
     dates = array_to_tags(extract_dates(@files), 
                           "DATE") if @options.date
@@ -568,7 +589,7 @@ class FlacTagger
       end if ftags
     end
     
-    tag(@options.dryrun)
+    tag(@options.dryrun, @options.print)
   end
 
   def associate_files_with_tags(files, dates, tracknumbers, titles, rgain)

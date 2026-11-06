@@ -1,3 +1,7 @@
+4.0.0
+
+- add -B option to create 'combined' ALBUM tag
+
 3.1.1
 
 - fixed a few bugs related to the -e option (thanks to Roel!)
