@@ -18,7 +18,7 @@
 
 require 'optparse'
 
-FTVERSION = '3.1.1'
+FTVERSION = '4.0.0'
 
 Tag = Struct.new(:field, :value)
 Options = Struct.new(:album, :combined_album, :date, :date_regexp, :edit,
