@@ -24,7 +24,7 @@ Tag = Struct.new(:field, :value)
 Options = Struct.new(:album, :combined_album, :date, :date_regexp, :edit,
                      :dryrun, :help, :ifields, :infofile, :mode, :parser,
                      :rtitles, :tags, :title_regexp, :ttype, :version,
-                     :print)
+                     :print, :single_line_titles)
 
 class InfofileParser
   def initialize(filename)
@@ -36,7 +36,7 @@ class InfofileParser
     @data.split("\n\n")[0].split("\n")
   end
 
-  def titles(re_title = /\d\d\. (.*)$/)
+  def titles(re_title = /\d\d\. (.*)$/, join_lines: true)
     lines = @data.split("\n")
     titles = []
     match = false
@@ -48,7 +48,7 @@ class InfofileParser
         titles << ::Regexp.last_match(1)
         match = true
         pline = line
-      elsif match
+      elsif match && join_lines
         # check for multi-line title
         # should be indented similar to match the start of the
         # previous line's title
@@ -163,6 +163,12 @@ class FlacTagger
          'which is: /^\\d\\d\\. (.*)$/') do |regexp|
       opts.rtitles = true
       opts.title_regexp = regexp == true ? nil : eval(regexp)
+    end
+
+    o.on('-s',
+         "Single-line titles. Don't append indented lines following a",
+         'title to that title when reading titles with -r') do
+      opts.single_line_titles = true
     end
 
     o.on('-t', '=TAG', String,
@@ -287,18 +293,19 @@ class FlacTagger
     dates
   end
 
-  def parse_info_file(infofile, rtitles, title_regexp, mode,
-                      ifields, use_album, combined_album)
+  def parse_info_file(infofile, rtitles, title_regexp, single_line_titles,
+                      mode, ifields, use_album, combined_album)
     titles = []
     tags = []
 
     if File.exist?(infofile)
       ifp = InfofileParser.new(infofile)
       if rtitles
+        join_lines = !single_line_titles
         titles = if title_regexp
-                   ifp.titles(title_regexp).flatten
+                   ifp.titles(title_regexp, join_lines: join_lines).flatten
                  else
-                   ifp.titles.flatten
+                   ifp.titles(join_lines: join_lines).flatten
                  end
       end
       if mode
@@ -334,9 +341,11 @@ class FlacTagger
 
           if headers[1].match(/\d{4}-\d\d-\d\d/)
             return parse_info_file(infofile, rtitles, title_regexp,
+                                   single_line_titles,
                                    :b, ifields, use_album, combined_album)
           elsif headers.last.match(/\d{4}-\d\d-\d\d/)
             return parse_info_file(infofile, rtitles, title_regexp,
+                                   single_line_titles,
                                    :a, ifields, use_album, combined_album)
           else
             raise 'Unable to automatically detect mode'
@@ -538,6 +547,7 @@ class FlacTagger
       gtags, titles = parse_info_file(@options.infofile,
                                       @options.rtitles,
                                       @options.title_regexp,
+                                      @options.single_line_titles,
                                       @options.mode,
                                       @options.ifields,
                                       @options.album,
